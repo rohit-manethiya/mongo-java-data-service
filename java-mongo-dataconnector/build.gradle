@@ -1,12 +1,19 @@
 plugins {
-    id 'java'
+    id 'java-library'
 }
 
-group 'org.example'
-version '1.0-SNAPSHOT'
+group 'org.spradhsupplierapi'
+version '1.0.0'
 
 repositories {
     mavenCentral()
+}
+
+apply plugin: 'java'
+jar {
+    manifest {
+        attributes 'Main-Class': 'App'
+    }
 }
 
 dependencies {
