@@ -73,6 +73,7 @@ public class App {
             propmetamap.put("supplierId", supplier.get("id").getAsString());
             propMetaMapss.add(propmetamap);
         }
+        List<DBEntity> propertyList = new ArrayList<DBEntity>();
         for(Map<String, String> propmetamap:propMetaMapss) {
             String id = propmetamap.get("id");
             String supplierId = propmetamap.get("supplierId");
@@ -108,8 +109,11 @@ public class App {
             Property property = new Property();
             property.fromJsonObject(propertyJson.getAsJsonObject("result"));
             if(property.getGeoCode() != null) {
-                mongoDbClient.insertIntoDb(Constants.collectionName, property);
+                propertyList.add(property);
             }
+        }
+        if(propertyList != null) {
+            mongoDbClient.insertIntoDb(Constants.collectionName, propertyList);
         }
     }
 

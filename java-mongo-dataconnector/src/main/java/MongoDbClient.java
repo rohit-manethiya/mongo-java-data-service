@@ -2,6 +2,7 @@ import com.mongodb.*;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 
 public class MongoDbClient {
 
@@ -43,6 +44,21 @@ public class MongoDbClient {
             System.out.println(result.getUpsertedId());
             System.out.println(result.getN());
             System.out.println(result.isUpdateOfExisting());
+
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+    public void insertIntoDb(String CollectionName, List<DBEntity> entity) {
+        try {
+            DBCollection collection = this.connection.getCollection(CollectionName);
+            BulkWriteOperation writeOperation = collection.initializeUnorderedBulkOperation();
+            for(DBEntity obj: entity) {
+                writeOperation.insert(obj.createDBObject());
+            }
+            BulkWriteResult result = writeOperation.execute();
+            System.out.println(result);
 
         } catch (Exception e) {
             System.out.println(e);
