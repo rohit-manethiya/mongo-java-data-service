@@ -1,4 +1,5 @@
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
@@ -45,7 +46,12 @@ public class Property implements DBEntity{
     public Property fromJsonObject(JsonObject propertyJson) {
         this.setId(propertyJson.get("propertyId").getAsString());
         GeoCode geoCode = new GeoCode();
-        JsonObject geoCodeJson = propertyJson.get(Constants.geoCode).getAsJsonObject();
+        JsonElement jegeo = propertyJson.get(Constants.geoCode);
+        JsonObject geoCodeJson = jegeo != null ? jegeo.getAsJsonObject() : null;
+        if(geoCodeJson == null) {
+            this.setGeoCode(null);
+            return null;
+        }
         geoCode.setId(geoCodeJson.get("id").getAsString());
         geoCode.setLatitude(geoCodeJson.get("latitude").getAsString());
         geoCode.setLongitude(geoCodeJson.get("longitude").getAsString());

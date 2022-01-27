@@ -44,6 +44,9 @@ public class App {
         if(respCode == 401) {
             conn.disconnect();
             token = getToken(true);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
             conn.setRequestProperty("Authorization", "Bearer "+ token);
             respCode = conn.getResponseCode();
         }
@@ -104,7 +107,9 @@ public class App {
             }
             Property property = new Property();
             property.fromJsonObject(propertyJson.getAsJsonObject("result"));
-            mongoDbClient.insertIntoDb(Constants.collectionName, property);
+            if(property.getGeoCode() != null) {
+                mongoDbClient.insertIntoDb(Constants.collectionName, property);
+            }
         }
     }
 
@@ -128,6 +133,7 @@ public class App {
         conn.setRequestProperty("Accept", "application/json");
 
         if (conn.getResponseCode() != 200) {
+            conn.disconnect();
             throw new RuntimeException("Failed : HTTP error code : "
                     + conn.getResponseCode());
         }
