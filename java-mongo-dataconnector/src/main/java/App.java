@@ -21,7 +21,7 @@ public class App {
             Map<String, Boolean> falseSuppliers = new HashMap<>();
             System.out.println(startPage);
             System.out.println(totalPages);
-            for(int i=startPage; i<totalPages; i++) {
+            for(int i=totalPages; i>startPage; i--) {
                 processPage(token, i, client, falseSuppliers);
             }
 //            client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());

@@ -28,9 +28,6 @@ public class MongoDbClient {
         try {
             DBCollection collection = this.connection.getCollection(CollectionName);
             WriteResult result = collection.insert(entity.createDBObject());
-            System.out.println(result.getUpsertedId());
-            System.out.println(result.getN());
-            System.out.println(result.isUpdateOfExisting());
 
         } catch (Exception e) {
             System.out.println(e);

@@ -1,5 +1,15 @@
 plugins {
-    id 'java-library'
+    id 'application'
+}
+
+application {
+    mainClass = 'App'
+}
+
+subprojects {
+    tasks.withType(application) {
+        maxParallelForks = Runtime.runtime.availableProcessors()
+    }
 }
 
 group 'org.spradhsupplierapi'
@@ -9,18 +19,13 @@ repositories {
     mavenCentral()
 }
 
-apply plugin: 'java'
-jar {
-    manifest {
-        attributes 'Main-Class': 'App'
-    }
-}
+apply plugin: 'application'
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 
-    implementation 'org.mongodb:mongodb-driver:3.12.10'
+    implementation group: 'org.mongodb', name: 'mongo-java-driver', version: '3.12.10'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.3.1'
 }
 
