@@ -12,17 +12,19 @@ import java.util.*;
  * App
  */
 public class App {
+    public static String token;
+
     public static void main(String[] args) {
         try {
-            String token = getToken(false);
+            String ttoken = getToken(false, "null");
+            App.token = ttoken;
             MongoDbClient client = new MongoDbClient();
             int startPage = Integer.valueOf(args[0]);
             int totalPages = Integer.valueOf(args[1]);
             Map<String, Boolean> falseSuppliers = new HashMap<>();
-            System.out.println(startPage);
-            System.out.println(totalPages);
-            for(int i=totalPages; i>startPage; i--) {
-                processPage(token, i, client, falseSuppliers);
+            for (int i = startPage; i <= totalPages; i++) {
+                System.out.println("pageNo: " + i);
+                processPage(App.token, i, client, falseSuppliers);
             }
 //            client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
 
@@ -33,21 +35,21 @@ public class App {
     }
 
     private static void processPage(String token, int i, MongoDbClient mongoDbClient, Map<String, Boolean> falseSuppliers) throws IOException {
-        URL url = new URL(Constants.baseurl+Constants.propertiesEndpoint+Constants.paging+
+        URL url = new URL(Constants.baseurl + Constants.propertiesEndpoint + Constants.paging +
                 String.format("?page=%d&size=100", i));
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Accept", "application/json");
-        conn.setRequestProperty("Authorization", "Bearer "+ token);
+        conn.setRequestProperty("Authorization", "Bearer " + token);
 
         int respCode = conn.getResponseCode();
-        if(respCode == 401) {
+        if (respCode == 401) {
             conn.disconnect();
-            token = getToken(true);
+            token = getToken(true, token);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
-            conn.setRequestProperty("Authorization", "Bearer "+ token);
+            conn.setRequestProperty("Authorization", "Bearer " + token);
             respCode = conn.getResponseCode();
         }
         if (respCode != 200) {
@@ -65,7 +67,7 @@ public class App {
         br.close();
         JsonArray propertiesList = propertiesListResp.getAsJsonArray("result");
         List<Map<String, String>> propMetaMapss = new ArrayList<>();
-        for(JsonElement jelement:propertiesList) {
+        for (JsonElement jelement : propertiesList) {
             JsonObject propmeta = jelement.getAsJsonObject();
             Map<String, String> propmetamap = new HashMap<>();
             propmetamap.put("id", propmeta.get("id").getAsString());
@@ -74,22 +76,31 @@ public class App {
             propMetaMapss.add(propmetamap);
         }
         List<DBEntity> propertyList = new ArrayList<DBEntity>();
-        for(Map<String, String> propmetamap:propMetaMapss) {
+        for (Map<String, String> propmetamap : propMetaMapss) {
             String id = propmetamap.get("id");
             String supplierId = propmetamap.get("supplierId");
-            if(falseSuppliers.get(supplierId) != null) {
+            if (falseSuppliers.get(supplierId) != null) {
                 continue;
             }
-            url = new URL(Constants.baseurl+Constants.propertiesEndpoint+Constants.info+"/"+id);
+            url = new URL(Constants.baseurl + Constants.propertiesEndpoint + Constants.info + "/" + id);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
-            conn.setRequestProperty("Authorization", "Bearer "+ token);
+            conn.setRequestProperty("Authorization", "Bearer " + token);
             int respCode2 = conn.getResponseCode();
-            if(respCode2 == 422) {
-                falseSuppliers.put(supplierId, true);
+            if (respCode2 == 401) {
                 conn.disconnect();
-                System.out.println("Skipping supplierId without property info: "+supplierId);
+                token = getToken(true, token);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("Accept", "application/json");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                respCode2 = conn.getResponseCode();
+            }
+            if (respCode2 == 422) {
+    //            falseSuppliers.put(supplierId, true);
+                conn.disconnect();
+                System.out.println("Skipping property without property info: " + id);
                 continue;
             }
             if (respCode2 != 200) {
@@ -103,35 +114,36 @@ public class App {
             JsonObject propertyJson = gson.fromJson(br, JsonObject.class);
             br.close();
             conn.disconnect();
-            if(!"success".equals(propertyJson.get("status").getAsString())) {
+            if (!"success".equals(propertyJson.get("status").getAsString())) {
                 continue;
             }
             Property property = new Property();
             property.fromJsonObject(propertyJson.getAsJsonObject("result"));
-            if(property.getGeoCode() != null) {
+            if (property.getGeoCode() != null) {
                 propertyList.add(property);
             }
         }
-        if(propertyList != null) {
+        if (propertyList != null) {
             mongoDbClient.insertIntoDb(Constants.collectionName, propertyList);
         }
     }
 
-    private static String getToken(boolean hardfetch) throws IOException {
-        String filePath = System.getProperty("user.dir") + "/" +Constants.tokenFile;
+    private static String getToken(boolean hardfetch, String oldToken) throws IOException {
+        String filePath = System.getProperty("user.dir") + "/" + Constants.tokenFile;
         File file = new File(filePath);
-        if(hardfetch) {
-            new FileWriter(filePath, false).close();
-        }
         Scanner fileReader = new Scanner(file);
         String token;
-        if(fileReader.hasNextLine()) {
+        if (fileReader.hasNextLine()) {
             token = fileReader.nextLine().trim();
             fileReader.close();
-            return token;
+            if (hardfetch && token.equals(oldToken)) {
+                new FileWriter(filePath, false).close();
+            } else {
+                return token;
+            }
         }
         fileReader.close();
-        URL url = new URL(Constants.baseurl+Constants.tokenEndpoint+String.format("?supplierId=%s&supplierSecret=%s", Constants.supplierId, Constants.supplierSecret));
+        URL url = new URL(Constants.baseurl + Constants.tokenEndpoint + String.format("?supplierId=%s&supplierSecret=%s", Constants.supplierId, Constants.supplierSecret));
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Accept", "application/json");
@@ -148,11 +160,12 @@ public class App {
 
         JsonObject tokenObj = new Gson().fromJson(br, JsonObject.class);
         token = tokenObj.get("accessToken").getAsString();
+        App.token = token;
         br.close();
         conn.disconnect();
         fileWriter.write(token);
         fileWriter.close();
-        return token;
+        return App.token;
     }
 
 }
