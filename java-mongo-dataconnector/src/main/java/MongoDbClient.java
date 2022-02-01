@@ -62,8 +62,8 @@ public class MongoDbClient {
         }
     }
 
-    public DBEntity getEntity(String collectionName, long id, String targetEntityName) {
-        DBObject query = BasicDBObjectBuilder.start().add("id", id).get();
+    public DBEntity getEntity(String collectionName, String id, String targetEntityName) {
+        DBObject query = BasicDBObjectBuilder.start().add("_id", id).get();
         DBCollection collection = this.connection.getCollection(collectionName);
         DBCursor cursor = collection.find(query);
         DBEntity dbEntity = null;

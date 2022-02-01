@@ -4,6 +4,8 @@ import com.google.gson.JsonObject;
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
 
+import java.lang.reflect.Type;
+
 public class Property implements DBEntity{
     private String id;
     private GeoCode geoCode;
@@ -33,12 +35,9 @@ public class Property implements DBEntity{
     }
 
     public Property fromDBObject(DBObject dbobj) {
-        DBObject geoCodeObj = (DBObject)dbobj.get("geoCode");
-        GeoCode geoCode = new GeoCode();
-        geoCode.setId((String)geoCodeObj.get("id"));
-        geoCode.setLatitude((String)geoCodeObj.get("latitude") );
-        geoCode.setLatitude((String)geoCodeObj.get("longitude") );
-        this.setId(String.valueOf((String)dbobj.get("_id")));
+        Gson gson = new Gson();
+        GeoCode geoCode  = gson.fromJson(String.valueOf(dbobj.get("geoCode")), GeoCode.class);
+        this.setId(String.valueOf(dbobj.get("_id")));
         this.setGeoCode(geoCode);
         return this;
     }
