@@ -21,10 +21,9 @@ public class App {
             MongoDbClient client = new MongoDbClient();
             int startPage = Integer.valueOf(args[0]);
             int totalPages = Integer.valueOf(args[1]);
-            Map<String, Boolean> falseSuppliers = new HashMap<>();
             for (int i = startPage; i <= totalPages; i++) {
                 System.out.println("pageNo: " + i);
-                processPage(App.token, i, client, falseSuppliers);
+                processPage(App.token, i, client);
             }
 //            client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
 
@@ -34,7 +33,7 @@ public class App {
 
     }
 
-    private static void processPage(String token, int i, MongoDbClient mongoDbClient, Map<String, Boolean> falseSuppliers) throws IOException {
+    private static void processPage(String token, int i, MongoDbClient mongoDbClient) throws IOException {
         URL url = new URL(Constants.baseurl + Constants.propertiesEndpoint + Constants.paging +
                 String.format("?page=%d&size=100", i));
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -79,9 +78,6 @@ public class App {
         for (Map<String, String> propmetamap : propMetaMapss) {
             String id = propmetamap.get("id");
             String supplierId = propmetamap.get("supplierId");
-            if (falseSuppliers.get(supplierId) != null) {
-                continue;
-            }
             url = new URL(Constants.baseurl + Constants.propertiesEndpoint + Constants.info + "/" + id);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -98,7 +94,6 @@ public class App {
                 respCode2 = conn.getResponseCode();
             }
             if (respCode2 == 422) {
-    //            falseSuppliers.put(supplierId, true);
                 conn.disconnect();
                 System.out.println("Skipping property without property info: " + id);
                 continue;
