@@ -1,6 +1,7 @@
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mongodb.BasicDBObject;
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
 
@@ -30,7 +31,8 @@ public class Property implements DBEntity{
         BasicDBObjectBuilder docBuilder = BasicDBObjectBuilder.start();
         Gson gson = new Gson();
         docBuilder.append("_id", this.getId());
-        docBuilder.append("geoCode", gson.toJson(this.getGeoCode()));
+        BasicDBObject geo= BasicDBObject.parse(gson.toJson(this.getGeoCode()));
+        docBuilder.append("geoCode", geo);
         return docBuilder.get();
     }
 
@@ -49,9 +51,8 @@ public class Property implements DBEntity{
         JsonObject geoCodeJson = jegeo != null ? jegeo.getAsJsonObject() : null;
         if(geoCodeJson == null) {
             this.setGeoCode(null);
-            return null;
+            return this;
         }
-        geoCode.setId(geoCodeJson.get("id").getAsString());
         geoCode.setLatitude(geoCodeJson.get("latitude").getAsString());
         geoCode.setLongitude(geoCodeJson.get("longitude").getAsString());
         this.setGeoCode(geoCode);

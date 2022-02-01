@@ -21,11 +21,16 @@ public class App {
             MongoDbClient client = new MongoDbClient();
             int startPage = Integer.valueOf(args[0]);
             int totalPages = Integer.valueOf(args[1]);
+            startPage = 100;
+            totalPages = 100;
             for (int i = startPage; i <= totalPages; i++) {
                 System.out.println("pageNo: " + i);
                 processPage(App.token, i, client);
             }
-//            client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
+            Property property = new Property();
+            property.setId("1466411");
+            Property entity = (Property) client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
+            System.out.println(entity.getGeoCode());
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -124,7 +129,7 @@ public class App {
     }
 
     private static String getToken(boolean hardfetch, String oldToken) throws IOException {
-        String filePath = System.getProperty("user.dir") + "/" + Constants.tokenFile;
+        String filePath = System.getProperty("user.dir") + "/java-mongo-dataconnector/" + Constants.tokenFile;
         File file = new File(filePath);
         Scanner fileReader = new Scanner(file);
         String token;
