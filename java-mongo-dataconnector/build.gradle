@@ -23,10 +23,12 @@ apply plugin: 'application'
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    implementation group: 'org.slf4j', name: 'slf4j-nop', version: '1.7.35'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 
-    implementation group: 'org.mongodb', name: 'mongo-java-driver', version: '3.12.10'
+    implementation group: 'org.mongodb', name: 'mongo-java-driver', version: '3.12.8'
     implementation group: 'com.google.code.gson', name: 'gson', version: '2.3.1'
+    implementation group: 'com.sparkjava', name: 'spark-core', version: '2.9.3'
 }
 
 test {

@@ -8,6 +8,13 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
 
+import static spark.Spark.*;
+
+import com.mongodb.DBObject;
+import spark.Request;
+import spark.Response;
+import spark.Route;
+
 /**
  * App
  */
@@ -19,23 +26,42 @@ public class App {
             String ttoken = getToken(false, "null");
             App.token = ttoken;
             MongoDbClient client = new MongoDbClient();
-            int startPage = Integer.valueOf(args[0]);
-            int totalPages = Integer.valueOf(args[1]);
-            startPage = 100;
-            totalPages = 100;
-            for (int i = startPage; i <= totalPages; i++) {
-                System.out.println("pageNo: " + i);
-                processPage(App.token, i, client);
-            }
-            Property property = new Property();
-            property.setId("1466411");
-            Property entity = (Property) client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
-            System.out.println(entity.getGeoCode());
-
+            put("/propertiesDump", (req, res) -> populateMongo(args, client));
+            get("/properties", (req, res) -> queryMongo(client, req.body()));
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+    }
+
+    private static JsonArray queryMongo(MongoDbClient client, String queryBody) {
+        Gson gson = new Gson();
+        JsonObject queryBodyGson  = gson.fromJson(queryBody, JsonObject.class);
+        String latitude = queryBodyGson.get("latitude").getAsString();
+        String longitude = queryBodyGson.get("longitude").getAsString();
+        Double radius = Double.valueOf(queryBodyGson.get("radius").getAsString());
+
+        // "db.properties.aggregate([{$geoNear:{near:{type:\"geoCode\",coordinates:[ 118.345971, 29.714212 ]},distanceField: \"propertyDistance\",maxDistance:10000,spherical: true}}]).pretty()";
+
+        Property property = new Property();
+        List<DBEntity> dbObjs = client.aggregateDBObjs(Constants.collectionName, latitude, longitude, radius, property.getClass().getName());
+        List<Property> propertyList = new ArrayList<>();
+        for(DBEntity entity: dbObjs) {
+            propertyList.add((Property) entity);
+        }
+
+        return gson.fromJson(gson.toJson(propertyList), JsonArray.class);
+        // Property entity = (Property) client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
+    }
+
+    private static String populateMongo(String[] args, MongoDbClient client) throws IOException {
+        int startPage = Integer.valueOf(args[0]);
+        int totalPages = Integer.valueOf(args[1]);
+        for (int i = startPage; i <= totalPages; i++) {
+            System.out.println("pageNo: " + i);
+            processPage(App.token, i, client);
+        }
+        return "Success";
     }
 
     private static void processPage(String token, int i, MongoDbClient mongoDbClient) throws IOException {
