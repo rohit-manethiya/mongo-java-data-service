@@ -15,6 +15,8 @@ public interface Constants {
     String paging="/paging";
     String info="/info";
     String geoCode="geoCode";
+    // use shorter path with gradle
+ //   String tokenFile="roomdbtoken.txt";
     String tokenFile="java-mongo-dataconnector/roomdbtoken.txt";
     String PASSWORD_KEY = "passSalZtySeYcretSweXetWord";
 }
