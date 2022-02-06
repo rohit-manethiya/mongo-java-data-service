@@ -2,6 +2,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import spark.Request;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -10,15 +11,11 @@ import java.util.*;
 
 import static spark.Spark.*;
 
-import com.mongodb.DBObject;
-import spark.Request;
-import spark.Response;
-import spark.Route;
-
 /**
  * App
  */
 public class App {
+    public static final String PASSWORD_KEY = Constants.PASSWORD_KEY;
     public static String token;
 
     public static void main(String[] args) {
@@ -26,17 +23,22 @@ public class App {
             String ttoken = getToken(false, "null");
             App.token = ttoken;
             MongoDbClient client = new MongoDbClient();
-            put("/propertiesDump", (req, res) -> populateMongo(args, client));
-            get("/properties", (req, res) -> queryMongo(client, req.body()));
+            put("/propertiesDump", (req, res) -> populateMongo(args, client, req.body()));
+            get("/properties", (req, res) -> queryMongo(client, req));
         } catch (Exception e) {
             e.printStackTrace();
         }
 
     }
 
-    private static JsonArray queryMongo(MongoDbClient client, String queryBody) {
+    private static JsonArray queryMongo(MongoDbClient client, Request req) {
         Gson gson = new Gson();
-        JsonObject queryBodyGson  = gson.fromJson(queryBody, JsonObject.class);
+        JsonObject queryBodyGson  = gson.fromJson(req.body(), JsonObject.class);
+        String username = req.headers("username");
+        String pwd = req.headers(PASSWORD_KEY);
+        if(!Constants.sparkUsername.equals(username) || !Constants.sparkpwd.equals(pwd)) {
+            return gson.fromJson("[{\"401\": \"User Unauthorized\"}]", JsonArray.class);
+        }
         String latitude = queryBodyGson.get("latitude").getAsString();
         String longitude = queryBodyGson.get("longitude").getAsString();
         Double radius = Double.valueOf(queryBodyGson.get("radius").getAsString());
@@ -54,7 +56,14 @@ public class App {
         // Property entity = (Property) client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
     }
 
-    private static String populateMongo(String[] args, MongoDbClient client) throws IOException {
+    private static String populateMongo(String[] args, MongoDbClient client, String queryBody) throws IOException {
+        Gson gson = new Gson();
+        JsonObject queryBodyGson  = gson.fromJson(queryBody, JsonObject.class);
+        String username = queryBodyGson.get("username").getAsString();
+        String pwd = queryBodyGson.get("passSalZtySeYcretSweXetWord").getAsString();
+        if(Constants.sparkUsername.equals(username) || Constants.sparkpwd.equals(pwd)) {
+            return "401 Unauthorized";
+        }
         int startPage = Integer.valueOf(args[0]);
         int totalPages = Integer.valueOf(args[1]);
         for (int i = startPage; i <= totalPages; i++) {
@@ -105,7 +114,7 @@ public class App {
             propmetamap.put("supplierId", supplier.get("id").getAsString());
             propMetaMapss.add(propmetamap);
         }
-        List<DBEntity> propertyList = new ArrayList<DBEntity>();
+        List<DBEntity> propertyList = new ArrayList<>();
         for (Map<String, String> propmetamap : propMetaMapss) {
             String id = propmetamap.get("id");
             String supplierId = propmetamap.get("supplierId");
@@ -155,7 +164,7 @@ public class App {
     }
 
     private static String getToken(boolean hardfetch, String oldToken) throws IOException {
-        String filePath = System.getProperty("user.dir") + "/java-mongo-dataconnector/" + Constants.tokenFile;
+        String filePath = System.getProperty("user.dir") + "/" + Constants.tokenFile;
         File file = new File(filePath);
         Scanner fileReader = new Scanner(file);
         String token;

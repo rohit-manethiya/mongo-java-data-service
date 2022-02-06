@@ -10,8 +10,11 @@ public interface Constants {
     String propertiesEndpoint = "/api/v1/properties";
     String supplierId=System.getenv("supplierId");
     String supplierSecret=System.getenv("supplierSecret");
+    String sparkUsername="spradhmongorunnable";
+    String sparkpwd="gradlemongohumour978";
     String paging="/paging";
     String info="/info";
     String geoCode="geoCode";
-    String tokenFile="roomdbtoken.txt";
+    String tokenFile="java-mongo-dataconnector/roomdbtoken.txt";
+    String PASSWORD_KEY = "passSalZtySeYcretSweXetWord";
 }
