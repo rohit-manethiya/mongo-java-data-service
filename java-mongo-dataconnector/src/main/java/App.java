@@ -15,7 +15,6 @@ import static spark.Spark.*;
  * App
  */
 public class App {
-    public static final String PASSWORD_KEY = Constants.PASSWORD_KEY;
     public static String token;
 
     public static void main(String[] args) {
@@ -35,7 +34,7 @@ public class App {
         Gson gson = new Gson();
         JsonObject queryBodyGson  = gson.fromJson(req.body(), JsonObject.class);
         String username = req.headers("username");
-        String pwd = req.headers(PASSWORD_KEY);
+        String pwd = req.headers("password");
         if(!Constants.sparkUsername.equals(username) || !Constants.sparkpwd.equals(pwd)) {
             return gson.fromJson("[{\"401\": \"User Unauthorized\"}]", JsonArray.class);
         }
