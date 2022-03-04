@@ -8,6 +8,7 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 import static spark.Spark.*;
 
@@ -22,7 +23,7 @@ public class App {
             String ttoken = getToken(false, "null");
             App.token = ttoken;
             MongoDbClient client = new MongoDbClient();
-            put("/propertiesDump", (req, res) -> populateMongo(args, client, req.body()));
+            put("/propertiesDump", (req, res) -> populateMongo(args, client, req));
             get("/properties", (req, res) -> queryMongo(client, req));
         } catch (Exception e) {
             e.printStackTrace();
@@ -55,19 +56,25 @@ public class App {
         // Property entity = (Property) client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
     }
 
-    private static String populateMongo(String[] args, MongoDbClient client, String queryBody) throws IOException {
-        Gson gson = new Gson();
-        JsonObject queryBodyGson  = gson.fromJson(queryBody, JsonObject.class);
-        String username = queryBodyGson.get("username").getAsString();
-        String pwd = queryBodyGson.get("passSalZtySeYcretSweXetWord").getAsString();
-        if(Constants.sparkUsername.equals(username) || Constants.sparkpwd.equals(pwd)) {
+    private static String populateMongo(String[] args, MongoDbClient client, Request req) {
+        String username = req.headers("username");
+        String pwd = req.headers("password");
+        if(!Constants.sparkUsername.equals(username) || !Constants.sparkpwd.equals(pwd)) {
             return "401 Unauthorized";
         }
-        int startPage = Integer.valueOf(args[0]);
-        int totalPages = Integer.valueOf(args[1]);
-        for (int i = startPage; i <= totalPages; i++) {
+        JsonObject queryBodyGson  = new Gson().fromJson(req.body(), JsonObject.class);
+        Integer startPage = Integer.valueOf(queryBodyGson.get("startPage").getAsString());
+        Integer endPage = Integer.valueOf(queryBodyGson.get("endPage").getAsString());
+        for (int i = startPage; i <= endPage; i++) {
+            final int itr = i;
             System.out.println("pageNo: " + i);
-            processPage(App.token, i, client);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    processPage(App.token, itr, client);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
         }
         return "Success";
     }

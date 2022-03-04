@@ -16,6 +16,6 @@ public interface Constants {
     String info="/info";
     String geoCode="geoCode";
     // use shorter path with gradle
- //   String tokenFile="roomdbtoken.txt";
-    String tokenFile="java-mongo-dataconnector/roomdbtoken.txt";
+    String tokenFile="roomdbtoken.txt";
+ //   String tokenFile="java-mongo-dataconnector/roomdbtoken.txt";
 }

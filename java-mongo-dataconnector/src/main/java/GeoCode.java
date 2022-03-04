@@ -1,5 +1,3 @@
-import com.google.gson.Gson;
-
 public class GeoCode {
     private String type = "Point";
     private double[] coordinates = new double[2];
