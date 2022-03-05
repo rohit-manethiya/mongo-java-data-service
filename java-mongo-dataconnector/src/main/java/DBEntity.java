@@ -5,4 +5,5 @@ public interface DBEntity {
     DBObject createDBObject();
     DBEntity fromDBObject(DBObject dbobj);
     DBEntity fromJsonObject(JsonObject jsonObject);
+    DBEntity addExtraDetails(JsonObject jsonObject);
 }

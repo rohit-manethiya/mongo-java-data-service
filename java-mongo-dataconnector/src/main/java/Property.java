@@ -6,7 +6,9 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Property implements DBEntity{
@@ -14,6 +16,7 @@ public class Property implements DBEntity{
     private String name;
     private GeoCode geoCode;
     private Map<String, String> descriptions = new HashMap<>();
+    private List<String> addresses = new ArrayList<>();
 
     public String getId() {
         return this.id;
@@ -47,6 +50,14 @@ public class Property implements DBEntity{
         this.descriptions = descriptions;
     }
 
+    public List<String> getAddresses() {
+        return this.addresses;
+    }
+
+    public void setAddresses(List<String> addresses) {
+        this.addresses = addresses;
+    }
+
     public DBObject createDBObject() {
         BasicDBObjectBuilder docBuilder = BasicDBObjectBuilder.start();
         Gson gson = new Gson();
@@ -56,6 +67,7 @@ public class Property implements DBEntity{
         BasicDBObject descriptions = BasicDBObject.parse(gson.toJson(this.getDescriptions()));
         docBuilder.append("descriptions", descriptions);
         docBuilder.append("name", this.getName());
+        docBuilder.append("addresses", this.getAddresses());
         return docBuilder.get();
     }
 
@@ -67,14 +79,15 @@ public class Property implements DBEntity{
         this.setName(String.valueOf(dbobj.get("name")));
         Map<String, String> descriptions = gson.fromJson(String.valueOf(dbobj.get("descriptions")), HashMap.class);
         this.setDescriptions(descriptions);
+        List<String> addresses = gson.fromJson(String.valueOf(dbobj.get("addresses")), ArrayList.class);
+        this.setAddresses(addresses);
         return this;
     }
 
-    public Property fromJsonObject(JsonObject propertyJson) {
-        this.setId(propertyJson.get("propertyId").getAsString());
-        this.setName(propertyJson.get("name").getAsString());
+    public Property fromJsonObject(JsonObject propertyInfoJson) {
+        this.setId(propertyInfoJson.get("propertyId").getAsString());
         GeoCode geoCode = new GeoCode();
-        JsonElement jegeo = propertyJson.get(Constants.geoCode);
+        JsonElement jegeo = propertyInfoJson.get(Constants.geoCode);
         JsonObject geoCodeJson = jegeo != null ? jegeo.getAsJsonObject() : null;
         if(geoCodeJson == null) {
             this.setGeoCode(null);
@@ -83,16 +96,51 @@ public class Property implements DBEntity{
         geoCode.setLatitude(geoCodeJson.get("latitude").getAsString());
         geoCode.setLongitude(geoCodeJson.get("longitude").getAsString());
         this.setGeoCode(geoCode);
-        if(! propertyJson.get("descriptions").isJsonNull() &&
-                ! propertyJson.get("descriptions").getAsJsonArray().isJsonNull()) {
-            JsonArray descriptions = propertyJson.get("descriptions").getAsJsonArray();
+
+        if(propertyInfoJson.get("addresses") != null && propertyInfoJson.get("addresses").getAsJsonArray() != null) {
+            JsonArray addresses = propertyInfoJson.get("addresses").getAsJsonArray();
+            int i = 0;
+            List<String> adds = new ArrayList<>();
+            while (i < addresses.size()) {
+                JsonElement addressEle = addresses.get(i);
+                i++;
+                JsonObject address = addressEle.getAsJsonObject();
+                if(address != null) {
+                    String addressLine = address.get("addressLine") != null ? address.get("addressLine").getAsString() : "";
+                    String cityName = address.get("cityName") != null ? address.get("cityName").getAsString() : "";
+                    String postalCode = address.get("postalCode") != null ? address.get("postalCode").getAsString() : "";
+                    String country = address.get("country") != null ? address.get("country").getAsJsonObject().get("codeA3").getAsString() : "";
+                    adds.add(addressLine + "\n" + cityName + "\n" + country + "\nPostal Code: " + postalCode);
+                }
+            }
+            this.setAddresses(adds);
+        }
+        return this;
+    }
+
+    public Property addExtraDetails(JsonObject propJson) {
+        this.setName(propJson.get("name") != null ? propJson.get("name").getAsString() : null);
+        if(propJson.get("descriptions") != null &&
+                propJson.get("descriptions").getAsJsonArray() != null) {
+            JsonArray descriptions = propJson.get("descriptions").getAsJsonArray();
             int i=0;
-            JsonElement desc = descriptions.get(i);
-            while(!desc.isJsonNull()) {
+            while(i<descriptions.size()) {
+                JsonElement desc = descriptions.get(i);
                 JsonObject descJson = desc.getAsJsonObject();
-                this.getDescriptions().put(descJson.get("name").getAsString(), descJson.get("text").getAsString());
+                if(descJson != null) {
+                    JsonObject descType = descJson.getAsJsonObject("descriptionType");
+                    if (descType != null) {
+                        this.getDescriptions().put(descType.get("name").getAsString(), descJson.get("text").getAsString());
+                    }
+                }
+                i++;
             }
         }
         return this;
+    }
+
+    @Override
+    public String toString() {
+        return new Gson().toJson(this);
     }
 }

@@ -39,25 +39,20 @@ public class MongoDbClient {
     }
 
     public void insertIntoDb(String CollectionName, DBEntity entity) {
+        DBCollection collection = this.db.getCollection(CollectionName);
         try {
-            DBCollection collection = this.db.getCollection(CollectionName);
             WriteResult result = collection.insert(entity.createDBObject());
-
-        } catch (Exception e) {
-            System.out.println(e);
-        }
-    }
-
-    public void insertIntoDb(String CollectionName, BasicDBObject entity) {
-        try {
-            DBCollection collection = this.db.getCollection(CollectionName);
-            WriteResult result = collection.insert(entity);
             System.out.println(result.getUpsertedId());
             System.out.println(result.getN());
             System.out.println(result.isUpdateOfExisting());
 
-        } catch (Exception e) {
+        } catch (DuplicateKeyException e) {
             System.out.println(e);
+            System.out.println("Updating existing data");
+            WriteResult result = collection.save(entity.createDBObject());
+            System.out.println(result.getUpsertedId());
+            System.out.println(result.getN());
+            System.out.println(result.isUpdateOfExisting());
         }
     }
 
@@ -66,6 +61,7 @@ public class MongoDbClient {
             DBCollection collection = this.db.getCollection(CollectionName);
             BulkWriteOperation writeOperation = collection.initializeUnorderedBulkOperation();
             for(DBEntity obj: entity) {
+                System.out.println(obj.toString());
                 writeOperation.insert(obj.createDBObject());
             }
             BulkWriteResult result = writeOperation.execute();

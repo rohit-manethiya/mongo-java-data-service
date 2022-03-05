@@ -23,8 +23,9 @@ public class App {
             String ttoken = getToken(false, "null");
             App.token = ttoken;
             MongoDbClient client = new MongoDbClient();
-            put("/propertiesDump", (req, res) -> populateMongo(args, client, req));
+            put("/properties", (req, res) -> populateMongo(args, client, req));
             get("/properties", (req, res) -> queryMongo(client, req));
+            post("/notifications", (req, res) -> interceptIncomingWebhook(client, req));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -56,13 +57,40 @@ public class App {
         // Property entity = (Property) client.getEntity(Constants.collectionName, property.getId(), property.getClass().getName());
     }
 
+    private static String interceptIncomingWebhook(MongoDbClient mongoDbClient, Request req) {
+        /**
+         * {"id":0,"entityName":"TestEntity","entityId":123,"updateTime":1646409385708}
+         */
+        try {
+            Gson gson = new Gson();
+            JsonObject reqBody = gson.fromJson(req.body(), JsonObject.class);
+            Long id = reqBody.get("id").getAsLong();
+            String entityName = reqBody.get("entityName").getAsString();
+            String entityId = reqBody.get("entityId").getAsString();
+            List<DBEntity> propertyList = new ArrayList<>();
+            if(entityId != null) {
+                try {
+                    token = fetchSingleProperty(token, gson, propertyList, entityId);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                if (propertyList != null && propertyList.size() == 1) {
+                    mongoDbClient.insertIntoDb(Constants.collectionName, propertyList.get(0));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "success";
+    }
+
     private static String populateMongo(String[] args, MongoDbClient client, Request req) {
         String username = req.headers("username");
         String pwd = req.headers("password");
         if(!Constants.sparkUsername.equals(username) || !Constants.sparkpwd.equals(pwd)) {
             return "401 Unauthorized";
         }
-        JsonObject queryBodyGson  = new Gson().fromJson(req.body(), JsonObject.class);
+        JsonObject queryBodyGson = new Gson().fromJson(req.body(), JsonObject.class);
         Integer startPage = Integer.valueOf(queryBodyGson.get("startPage").getAsString());
         Integer endPage = Integer.valueOf(queryBodyGson.get("endPage").getAsString());
         for (int i = startPage; i <= endPage; i++) {
@@ -120,53 +148,116 @@ public class App {
             propmetamap.put("supplierId", supplier.get("id").getAsString());
             propMetaMapss.add(propmetamap);
         }
+        persistProperties(token, mongoDbClient, gson, propMetaMapss);
+    }
+
+    private static void persistProperties(String token, MongoDbClient mongoDbClient, Gson gson, List<Map<String, String>> propMetaMapss) throws IOException {
         List<DBEntity> propertyList = new ArrayList<>();
         for (Map<String, String> propmetamap : propMetaMapss) {
-            String id = propmetamap.get("id");
-            String supplierId = propmetamap.get("supplierId");
-            url = new URL(Constants.baseurl + Constants.propertiesEndpoint + Constants.info + "/" + id);
+            token = fetchSingleProperty(token, gson, propertyList, propmetamap.get("id"));
+            continue;
+        }
+        if (propertyList != null && propertyList.size() > 0) {
+            mongoDbClient.insertIntoDb(Constants.collectionName, propertyList);
+        }
+    }
+
+    private static String fetchSingleProperty(String token, Gson gson, List<DBEntity> propertyList, String id) throws IOException {
+        BufferedReader br;
+        URL url;
+        HttpURLConnection conn;
+        url = new URL(Constants.baseurl + Constants.propertiesEndpoint + Constants.info + "/" + id);
+        DBEntity property = extractPropertyInfo(token, gson, propertyList, id, url);
+        if(property != null) {
+            url = new URL(Constants.baseurl + Constants.propertiesEndpoint + "/" + id);
+            return extractAdditionalPropertyInfo(token, gson, property, id, url);
+        }
+        return token;
+    }
+
+    private static String extractAdditionalPropertyInfo(String token, Gson gson, DBEntity property, String id, URL url) throws IOException {
+        HttpURLConnection conn;
+        BufferedReader br;
+        conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        int respCode2 = conn.getResponseCode();
+        if (respCode2 == 401) {
+            conn.disconnect();
+            token = getToken(true, token);
             conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Accept", "application/json");
             conn.setRequestProperty("Authorization", "Bearer " + token);
-            int respCode2 = conn.getResponseCode();
-            if (respCode2 == 401) {
-                conn.disconnect();
-                token = getToken(true, token);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("Accept", "application/json");
-                conn.setRequestProperty("Authorization", "Bearer " + token);
-                respCode2 = conn.getResponseCode();
-            }
-            if (respCode2 == 422) {
-                conn.disconnect();
-                System.out.println("Skipping property without property info: " + id);
-                continue;
-            }
-            if (respCode2 != 200) {
-                conn.disconnect();
-                throw new RuntimeException("Failed : HTTP error code : "
-                        + respCode2);
-            }
-            br = new BufferedReader(new InputStreamReader(
-                    (conn.getInputStream())));
-
-            JsonObject propertyJson = gson.fromJson(br, JsonObject.class);
-            br.close();
+            respCode2 = conn.getResponseCode();
+        }
+        if (respCode2 == 422) {
             conn.disconnect();
-            if (!"success".equals(propertyJson.get("status").getAsString())) {
-                continue;
-            }
-            Property property = new Property();
-            property.fromJsonObject(propertyJson.getAsJsonObject("result"));
-            if (property.getGeoCode() != null) {
-                propertyList.add(property);
-            }
+            System.out.println("Skipping property without property info: " + id);
+            return token;
         }
-        if (propertyList != null) {
-            mongoDbClient.insertIntoDb(Constants.collectionName, propertyList);
+        if (respCode2 != 200) {
+            conn.disconnect();
+            throw new RuntimeException("Failed : HTTP error code : "
+                    + respCode2);
         }
+        br = new BufferedReader(new InputStreamReader(
+                (conn.getInputStream())));
+
+        JsonObject propertyJson = gson.fromJson(br, JsonObject.class);
+        br.close();
+        conn.disconnect();
+        if (!"success".equals(propertyJson.get("status").getAsString())) {
+            return token;
+        }
+        property.addExtraDetails(propertyJson.getAsJsonObject("result"));
+        return token;
+    }
+
+    private static DBEntity extractPropertyInfo(String token, Gson gson, List<DBEntity> propertyList, String id, URL url) throws IOException {
+        HttpURLConnection conn;
+        BufferedReader br;
+        conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        int respCode2 = conn.getResponseCode();
+        if (respCode2 == 401) {
+            conn.disconnect();
+            token = getToken(true, token);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            respCode2 = conn.getResponseCode();
+        }
+        if (respCode2 == 422) {
+            conn.disconnect();
+            System.out.println("Skipping property without property info: " + id);
+            return null;
+        }
+        if (respCode2 != 200) {
+            conn.disconnect();
+            throw new RuntimeException("Failed : HTTP error code : "
+                    + respCode2);
+        }
+        br = new BufferedReader(new InputStreamReader(
+                (conn.getInputStream())));
+
+        JsonObject propertyJson = gson.fromJson(br, JsonObject.class);
+        br.close();
+        conn.disconnect();
+        if (!"success".equals(propertyJson.get("status").getAsString())) {
+            return null;
+        }
+        Property property = new Property();
+        property.fromJsonObject(propertyJson.getAsJsonObject("result"));
+        if (property.getGeoCode() != null) {
+            propertyList.add(property);
+            return property;
+        }
+        return null;
     }
 
     private static String getToken(boolean hardfetch, String oldToken) throws IOException {
